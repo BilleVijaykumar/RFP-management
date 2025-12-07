@@ -30,10 +30,11 @@ A comprehensive web application that streamlines the Request for Proposal (RFP) 
 
 ## Prerequisites
 
-- Node.js 18+ and npm
-- PostgreSQL 14+
-- OpenAI API key
-- Email account with SMTP/IMAP access (Gmail, Outlook, etc.)
+- **Node.js**: Version 18.x or 20.x (tested with Node.js 18.17.0 and 20.10.0)
+- **npm**: Version 9.x or 10.x (comes with Node.js)
+- **PostgreSQL**: Version 14+ (tested with PostgreSQL 14.9 and 15.4)
+- **OpenAI API Key**: Get from https://platform.openai.com/api-keys
+- **Email Account**: With SMTP/IMAP access (Gmail recommended, requires App Password)
 
 ## Project Setup
 
@@ -136,6 +137,19 @@ The application will be available at:
 - Frontend: http://localhost:3000
 - Backend API: http://localhost:3001
 
+### 6. Seed Data (Optional)
+
+To populate the database with sample vendors and RFPs for testing:
+
+```bash
+cd backend
+npm run seed
+```
+
+This will create:
+- 3 sample vendors (Tech Solutions Inc., Office Supplies Co., Global Electronics)
+- 1 sample RFP (Office Equipment Procurement)
+
 ## API Documentation
 
 ### RFP Endpoints
@@ -143,27 +157,166 @@ The application will be available at:
 #### Create RFP from Natural Language
 ```
 POST /api/rfps/create-from-text
-Body: { "text": "I need to procure laptops..." }
-Response: { "success": true, "data": { RFP object } }
+Content-Type: application/json
+
+Request Body:
+{
+  "text": "I need to procure 20 laptops with 16GB RAM and 15 monitors 27-inch. Budget is $50,000 total. Need delivery within 30 days. Payment terms should be net 30, and we need at least 1 year warranty."
+}
+
+Success Response (200):
+{
+  "success": true,
+  "data": {
+    "id": "clx1234567890",
+    "title": "Laptop and Monitor Procurement",
+    "description": "Procurement of laptops and monitors",
+    "requirements": [
+      {
+        "item": "Laptops",
+        "quantity": 20,
+        "specifications": "16GB RAM"
+      },
+      {
+        "item": "Monitors",
+        "quantity": 15,
+        "specifications": "27-inch"
+      }
+    ],
+    "budget": 50000,
+    "deadline": "2024-12-31T00:00:00.000Z",
+    "paymentTerms": "Net 30",
+    "warranty": "1 year minimum",
+    "deliveryTerms": "Within 30 days",
+    "status": "draft",
+    "createdAt": "2024-12-07T10:00:00.000Z",
+    "updatedAt": "2024-12-07T10:00:00.000Z"
+  }
+}
+
+Error Response (400):
+{
+  "success": false,
+  "error": "Invalid input: text is required"
+}
+
+Error Response (500):
+{
+  "success": false,
+  "error": "Failed to create RFP: AI service unavailable"
+}
 ```
 
 #### Create RFP Manually
 ```
 POST /api/rfps
-Body: { "title": "...", "requirements": [...], ... }
-Response: { "success": true, "data": { RFP object } }
+Content-Type: application/json
+
+Request Body:
+{
+  "title": "Office Equipment Procurement",
+  "description": "Procurement of laptops and monitors for new office",
+  "requirements": [
+    {
+      "item": "Laptops",
+      "quantity": 20,
+      "specifications": "16GB RAM, Intel i7"
+    },
+    {
+      "item": "Monitors",
+      "quantity": 15,
+      "specifications": "27-inch, 4K"
+    }
+  ],
+  "budget": 50000,
+  "deadline": "2024-12-31",
+  "paymentTerms": "Net 30",
+  "warranty": "1 year",
+  "deliveryTerms": "Within 30 days",
+  "status": "draft"
+}
+
+Success Response (201):
+{
+  "success": true,
+  "data": {
+    "id": "clx1234567890",
+    "title": "Office Equipment Procurement",
+    "description": "Procurement of laptops and monitors for new office",
+    "requirements": [...],
+    "budget": 50000,
+    "deadline": "2024-12-31T00:00:00.000Z",
+    "status": "draft",
+    "createdAt": "2024-12-07T10:00:00.000Z",
+    "updatedAt": "2024-12-07T10:00:00.000Z"
+  }
+}
+
+Error Response (400):
+{
+  "success": false,
+  "error": "Validation error: title is required"
+}
 ```
 
 #### Get All RFPs
 ```
 GET /api/rfps
-Response: { "success": true, "data": [ RFP objects ] }
+
+Success Response (200):
+{
+  "success": true,
+  "data": [
+    {
+      "id": "clx1234567890",
+      "title": "Office Equipment Procurement",
+      "description": "Procurement of laptops and monitors",
+      "status": "draft",
+      "createdAt": "2024-12-07T10:00:00.000Z",
+      "updatedAt": "2024-12-07T10:00:00.000Z"
+    }
+  ]
+}
+
+Error Response (500):
+{
+  "success": false,
+  "error": "Failed to fetch RFPs"
+}
 ```
 
 #### Get RFP by ID
 ```
-GET /api/rfps/:id
-Response: { "success": true, "data": { RFP object with proposals } }
+GET /api/rfps/clx1234567890
+
+Success Response (200):
+{
+  "success": true,
+  "data": {
+    "id": "clx1234567890",
+    "title": "Office Equipment Procurement",
+    "description": "Procurement of laptops and monitors",
+    "requirements": [...],
+    "status": "draft",
+    "proposals": [
+      {
+        "id": "clx9876543210",
+        "vendorId": "clx1111111111",
+        "status": "parsed",
+        "aiScore": 85,
+        "complianceScore": 90
+      }
+    ],
+    "createdAt": "2024-12-07T10:00:00.000Z",
+    "updatedAt": "2024-12-07T10:00:00.000Z"
+  }
+}
+
+Error Response (404):
+{
+  "success": false,
+  "error": "RFP not found"
+}
 ```
 
 #### Update RFP
@@ -181,15 +334,91 @@ Response: { "success": true, "message": "RFP deleted successfully" }
 
 #### Send RFP to Vendors
 ```
-POST /api/rfps/:id/send
-Body: { "vendorIds": ["vendor-id-1", "vendor-id-2"] }
-Response: { "success": true, "data": { "results": [...] } }
+POST /api/rfps/clx1234567890/send
+Content-Type: application/json
+
+Request Body:
+{
+  "vendorIds": ["clx1111111111", "clx2222222222"]
+}
+
+Success Response (200):
+{
+  "success": true,
+  "data": {
+    "results": [
+      {
+        "vendorId": "clx1111111111",
+        "vendorName": "Tech Solutions Inc.",
+        "email": "vendor1@example.com",
+        "sent": true,
+        "messageId": "msg-123456"
+      },
+      {
+        "vendorId": "clx2222222222",
+        "vendorName": "Office Supplies Co.",
+        "email": "vendor2@example.com",
+        "sent": true,
+        "messageId": "msg-123457"
+      }
+    ]
+  }
+}
+
+Error Response (400):
+{
+  "success": false,
+  "error": "No vendors selected"
+}
+
+Error Response (500):
+{
+  "success": false,
+  "error": "Failed to send emails: SMTP connection failed"
+}
 ```
 
 #### Compare Proposals
 ```
-GET /api/rfps/:id/compare
-Response: { "success": true, "data": { "comparison": { ... } } }
+GET /api/rfps/clx1234567890/compare
+
+Success Response (200):
+{
+  "success": true,
+  "data": {
+    "comparison": {
+      "summary": "3 proposals compared",
+      "proposals": [
+        {
+          "vendorId": "clx1111111111",
+          "vendorName": "Tech Solutions Inc.",
+          "totalPrice": 48000,
+          "aiScore": 85,
+          "complianceScore": 90,
+          "strengths": ["Competitive pricing", "Meets all requirements"],
+          "weaknesses": ["Longer delivery time"],
+          "recommendation": "Strong candidate"
+        }
+      ],
+      "bestMatch": {
+        "vendorId": "clx1111111111",
+        "reason": "Best balance of price, compliance, and terms"
+      }
+    }
+  }
+}
+
+Error Response (400):
+{
+  "success": false,
+  "error": "Need at least 2 proposals to compare"
+}
+
+Error Response (404):
+{
+  "success": false,
+  "error": "RFP not found"
+}
 ```
 
 ### Vendor Endpoints
@@ -209,8 +438,45 @@ Response: { "success": true, "data": { Vendor object } }
 #### Create Vendor
 ```
 POST /api/vendors
-Body: { "name": "...", "email": "...", ... }
-Response: { "success": true, "data": { Vendor object } }
+Content-Type: application/json
+
+Request Body:
+{
+  "name": "Tech Solutions Inc.",
+  "email": "vendor@example.com",
+  "contactPerson": "John Doe",
+  "phone": "+1-555-0101",
+  "category": "IT Equipment",
+  "notes": "Preferred vendor"
+}
+
+Success Response (201):
+{
+  "success": true,
+  "data": {
+    "id": "clx1111111111",
+    "name": "Tech Solutions Inc.",
+    "email": "vendor@example.com",
+    "contactPerson": "John Doe",
+    "phone": "+1-555-0101",
+    "category": "IT Equipment",
+    "notes": "Preferred vendor",
+    "createdAt": "2024-12-07T10:00:00.000Z",
+    "updatedAt": "2024-12-07T10:00:00.000Z"
+  }
+}
+
+Error Response (400):
+{
+  "success": false,
+  "error": "Validation error: email is required and must be valid"
+}
+
+Error Response (409):
+{
+  "success": false,
+  "error": "Vendor with this email already exists"
+}
 ```
 
 #### Update Vendor
@@ -346,6 +612,95 @@ The system uses OpenAI GPT-4 Turbo for three main tasks:
 - Automatically detects RFP responses by subject/content
 - Extracts text from email body and PDF attachments
 - Creates proposals automatically when vendor is identified
+
+## AI Tools Usage During Development
+
+### Tools Used
+
+This project was built with assistance from the following AI tools:
+
+- **Cursor AI**: Primary development assistant for code generation, refactoring, and debugging
+- **GitHub Copilot**: Inline code suggestions and autocomplete
+- **ChatGPT (OpenAI)**: Design decisions, architecture planning, and problem-solving discussions
+
+### What They Helped With
+
+1. **Boilerplate Code Generation**
+   - Initial project structure setup (Express.js backend, React frontend)
+   - Prisma schema design and migrations
+   - API route structure and controllers
+   - React component scaffolding
+
+2. **Debugging & Problem Solving**
+   - Resolving TypeScript type errors
+   - Fixing Prisma ORM query issues
+   - Debugging email integration (SMTP/IMAP) connection problems
+   - Troubleshooting AI API integration challenges
+
+3. **Design & Architecture**
+   - Database schema design decisions
+   - API endpoint structure and RESTful conventions
+   - Frontend component architecture
+   - State management patterns
+
+4. **Code Quality & Best Practices**
+   - TypeScript type definitions
+   - Error handling patterns
+   - Validation schemas using Zod
+   - Code organization and structure
+
+5. **Documentation**
+   - README structure and content
+   - API documentation examples
+   - Code comments and explanations
+
+### Notable Prompts/Approaches
+
+1. **"Create a full-stack RFP management system with AI integration"**
+   - Generated initial project structure and tech stack recommendations
+
+2. **"Design a Prisma schema for RFP, Vendor, and Proposal entities with relationships"**
+   - Resulted in flexible JSONB fields for requirements and extracted data
+
+3. **"Implement email polling service that parses vendor responses and extracts proposal data using AI"**
+   - Led to IMAP polling architecture with automatic proposal creation
+
+4. **"Create React components for RFP management with modern UI/UX"**
+   - Generated component structure with gradient designs and responsive layouts
+
+5. **"Fix text visibility issues on gradient backgrounds"**
+   - Helped identify CSS specificity issues and implement proper white text styling
+
+### Learnings & Changes
+
+1. **AI-Assisted Development Speed**
+   - Significantly faster initial development with AI-generated boilerplate
+   - More time could be spent on business logic and user experience
+
+2. **Code Quality Improvements**
+   - AI suggestions helped catch potential bugs early
+   - Consistent code style across the project
+   - Better error handling patterns
+
+3. **Architecture Refinements**
+   - Initial AI suggestions were refined through iterative conversations
+   - JSONB fields for flexible data storage (better than rigid schemas)
+   - Polling-based email system chosen over webhooks for simplicity
+
+4. **Prompt Engineering Skills**
+   - Learned to write more specific prompts for better results
+   - Iterative refinement of prompts led to better code generation
+   - Context management became crucial for maintaining consistency
+
+5. **Limitations Realized**
+   - AI tools are great for structure but require human judgment for business logic
+   - Some generated code needed significant refactoring
+   - Documentation still requires human review and customization
+
+6. **Development Workflow Changes**
+   - Shifted from writing code from scratch to reviewing and refining AI-generated code
+   - More focus on testing and integration rather than initial implementation
+   - Faster prototyping allowed for more experimentation
 
 ## Design Decisions & Assumptions
 
