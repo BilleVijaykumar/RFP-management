@@ -1,0 +1,97 @@
+// This is your Prisma schema file,
+// learn more about it in the docs: https://pris.ly/d/prisma-schema
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+model RFP {
+  id          String   @id @default(cuid())
+  title       String
+  description String?
+  requirements Json   // Flexible JSON structure for requirements
+  budget      Float?
+  deadline    DateTime?
+  status      String   @default("draft") // draft, sent, closed
+  paymentTerms String?
+  warranty    String?
+  deliveryTerms String?
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  proposals   Proposal[]
+  emails      Email[]
+
+  @@map("rfps")
+}
+
+model Vendor {
+  id           String   @id @default(cuid())
+  name         String
+  email        String   @unique
+  contactPerson String?
+  phone        String?
+  category     String?
+  rating       Float?   @default(0)
+  notes        String?
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
+
+  proposals    Proposal[]
+  emails       Email[]
+
+  @@map("vendors")
+}
+
+model Proposal {
+  id            String   @id @default(cuid())
+  rfpId         String
+  vendorId      String
+  status        String   @default("received") // received, parsed, evaluated
+  rawContent    String?  @db.Text
+  attachmentsUrls Json?  // Array of attachment URLs
+  extractedData Json?    // Structured data extracted by AI
+  aiSummary     String?  @db.Text
+  aiScore       Float?
+  complianceScore Float?
+  createdAt     DateTime @default(now())
+  parsedAt      DateTime?
+  updatedAt     DateTime @updatedAt
+
+  rfp           RFP      @relation(fields: [rfpId], references: [id], onDelete: Cascade)
+  vendor        Vendor   @relation(fields: [vendorId], references: [id], onDelete: Cascade)
+
+  @@map("proposals")
+  @@index([rfpId])
+  @@index([vendorId])
+}
+
+model Email {
+  id          String   @id @default(cuid())
+  messageId   String?  @unique
+  from        String
+  to          String
+  subject     String
+  body        String   @db.Text
+  attachments Json?    // Array of attachment metadata
+  direction   String   // inbound, outbound
+  status      String   @default("pending") // pending, processed, failed
+  rfpId       String?
+  vendorId    String?
+  createdAt   DateTime @default(now())
+  processedAt DateTime?
+
+  rfp         RFP?     @relation(fields: [rfpId], references: [id], onDelete: SetNull)
+  vendor      Vendor?  @relation(fields: [vendorId], references: [id], onDelete: SetNull)
+
+  @@map("emails")
+  @@index([rfpId])
+  @@index([vendorId])
+  @@index([direction])
+}
+
